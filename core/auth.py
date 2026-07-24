@@ -4,7 +4,7 @@ from functools import wraps
 from typing import Callable
 
 from flask import Blueprint, redirect, render_template, request, session, url_for
-from supabase_auth.errors import AuthApiError
+# from supabase_auth.errors import AuthApiError
 
 from core.supabase_client import supabase
 
@@ -49,7 +49,7 @@ def login_post():
         response = supabase.auth.sign_in_with_password({"email": email, "password": password})
         session[_SESSION_KEY] = response.user.email
         return redirect(url_for("home"))
-    except AuthApiError as exc:
+    except Exception  as exc:
         return render_template("login.html", error="Invalid email or password."), 401
     except Exception as exc:
         return render_template("login.html", error=f"An unexpected error occurred: {exc}"), 500
