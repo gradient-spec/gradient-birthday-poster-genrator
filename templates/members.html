@@ -1,0 +1,773 @@
+{% extends "base.html" %}
+{% block title %}Members · Gradient{% endblock %}
+
+{% block content %}
+<style>
+  /* ── Toolbar ── */
+  .members-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 180px;
+    max-width: 360px;
+  }
+  .search-wrap svg {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 15px; height: 15px;
+    stroke: var(--text-muted);
+    fill: none;
+    stroke-width: 1.8;
+    stroke-linecap: round; stroke-linejoin: round;
+    pointer-events: none;
+  }
+  .search-input {
+    width: 100%;
+    padding: 9px 12px 9px 36px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-input::placeholder { color: var(--text-muted); }
+  .search-input:focus { border-color: var(--accent); }
+
+  /* ── Table card ── */
+  .table-card { overflow: hidden; }
+  .table-wrap { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  thead tr {
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  tbody tr {
+    border-bottom: 1px solid rgba(42,54,71,0.5);
+    transition: background 0.12s;
+  }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,0.025); }
+  td { padding: 13px 16px; vertical-align: middle; }
+  /* ── Photo avatar ── */
+  .member-photo {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--bg-secondary);
+    flex-shrink: 0;
+    display: block;
+  }
+  .member-photo-placeholder {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem; font-weight: 600; color: #fff;
+    flex-shrink: 0;
+  }
+  .photo-cell { display: flex; align-items: center; }
+
+  /* ── Status badge ── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem; font-weight: 500;
+  }
+  .badge-active {
+    background: rgba(24,98,117,0.12);
+    color: var(--success-text);
+    border: 1px solid rgba(24,98,117,0.3);
+  }
+  .badge-inactive {
+    background: rgba(255,255,255,0.04);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .badge-dot {
+    width: 5px; height: 5px; border-radius: 50%; background: currentColor;
+  }
+
+  /* ── Action buttons ── */
+  .action-btns { display: flex; align-items: center; gap: 6px; }
+  .btn-icon-sm {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px;
+    border-radius: 7px; border: 1px solid var(--border);
+    background: transparent; cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    color: var(--text-muted);
+  }
+  .btn-icon-sm svg {
+    width: 13px; height: 13px;
+    stroke: currentColor; fill: none;
+    stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+  }
+  .btn-icon-sm:hover { background: rgba(255,255,255,0.06); color: var(--text); border-color: var(--text-muted); }
+  .btn-delete:hover { background: var(--error-bg); color: var(--error-text); border-color: var(--error-border); }
+
+  /* ── Empty state ── */
+  .empty-state {
+    padding: 56px 24px;
+    text-align: center;
+  }
+  .empty-state p { font-size: 0.9rem; color: var(--text-muted); margin-top: 8px; }
+
+  /* ── Toast ── */
+  .toast-container {
+    position: fixed; bottom: 28px; right: 28px;
+    display: flex; flex-direction: column; gap: 10px;
+    z-index: 900; pointer-events: none;
+  }
+  .toast {
+    padding: 12px 18px;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    pointer-events: all;
+    animation: toast-in 0.25s ease;
+    max-width: 340px;
+  }
+  .toast.success { background: #0f2a22; border: 1px solid rgba(24,98,117,0.5); color: var(--success-text); }
+  .toast.error   { background: #2a0f0f; border: 1px solid var(--error-border); color: var(--error-text); }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  /* ── Modal ── */
+  .modal-backdrop {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 500;
+    align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    width: min(520px, 100%);
+    box-shadow: 0 32px 80px rgba(0,0,0,0.7);
+    display: flex; flex-direction: column;
+    max-height: 90vh;
+    overflow: hidden;
+  }
+  .modal-header {
+    padding: 24px 28px 0;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .modal-header h2 {
+    font-family: var(--font-heading);
+    font-size: 1.15rem; font-weight: 600;
+    color: var(--text);
+  }
+  .modal-close {
+    display: flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px;
+    border-radius: 7px; border: none;
+    background: transparent; cursor: pointer; color: var(--text-muted);
+    transition: background 0.15s, color 0.15s;
+  }
+  .modal-close:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+  .modal-close svg {
+    width: 15px; height: 15px;
+    stroke: currentColor; fill: none;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  }
+  .modal-body { padding: 24px 28px; overflow-y: auto; }
+  .modal-footer {
+    padding: 0 28px 24px;
+    display: flex; justify-content: flex-end; gap: 10px;
+    flex-shrink: 0;
+  }
+
+  /* ── Form fields ── */
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label {
+    font-size: 0.78rem; font-weight: 500;
+    letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .field input[type="text"],
+  .field input[type="date"] {
+    padding: 10px 13px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    color: var(--text);
+    font-family: var(--font-body); font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+    width: 100%;
+  }
+  .field input:focus { border-color: var(--accent); }
+  .field input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5); }
+  .field-row { display: flex; gap: 16px; }
+  .field-row .field { flex: 1; }
+
+  /* ── Toggle switch ── */
+  .toggle-wrap { display: flex; align-items: center; gap: 10px; }
+  .toggle { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; inset: 0;
+    background: var(--border); border-radius: 999px;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .toggle-slider::before {
+    content: ''; position: absolute;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; left: 3px; top: 3px;
+    transition: transform 0.2s;
+  }
+  .toggle input:checked + .toggle-slider { background: var(--accent); }
+  .toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+  .toggle-label { font-size: 0.9rem; color: var(--text-muted); }
+
+  /* ── Photo upload ── */
+  .photo-upload-area {
+    border: 1.5px dashed var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+  }
+  .photo-upload-area:hover { border-color: var(--accent); background: rgba(24,98,117,0.04); }
+  .photo-upload-area input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .photo-upload-area svg {
+    width: 24px; height: 24px;
+    stroke: var(--text-muted); fill: none;
+    stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+    margin: 0 auto 8px;
+  }
+  .upload-hint { font-size: 0.82rem; color: var(--text-muted); }
+  .upload-hint span { color: var(--accent); }
+  .photo-preview-wrap { margin-top: 12px; display: none; }
+  .photo-preview-wrap.visible { display: flex; align-items: center; gap: 12px; }
+  .photo-preview {
+    width: 52px; height: 52px;
+    border-radius: 50%; object-fit: cover;
+    border: 2px solid var(--border);
+  }
+  .photo-preview-name { font-size: 0.82rem; color: var(--text-muted); }
+  .btn-remove-photo {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-muted); font-size: 0.8rem;
+    text-decoration: underline; padding: 0;
+  }
+  .btn-remove-photo:hover { color: var(--error-text); }
+
+  /* ── Cancel / Save buttons ── */
+  .btn-ghost {
+    padding: 9px 18px; border-radius: 9px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text-muted); font-size: 0.9rem; font-weight: 500;
+    cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,0.05); color: var(--text); border-color: var(--text-muted); }
+
+  /* ── Delete confirm dialog ── */
+  .confirm-modal .modal { max-width: 400px; }
+  .confirm-body { padding: 20px 28px 0; }
+  .confirm-body p { font-size: 0.93rem; color: var(--text-muted); line-height: 1.65; }
+  .confirm-body strong { color: var(--text); }
+  .btn-danger {
+    padding: 9px 18px; border-radius: 9px; border: none;
+    background: rgba(200,60,60,0.18); color: var(--error-text);
+    font-size: 0.9rem; font-weight: 500; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .btn-danger:hover { background: rgba(200,60,60,0.28); }
+
+  /* ── Responsive ── */
+  @media (max-width: 640px) {
+    th.col-photo, td.col-photo { display: none; }
+    th.col-days,  td.col-days  { display: none; }
+    th.col-created, td.col-created { display: none; }
+    .field-row { flex-direction: column; gap: 0; }
+  }
+  @media (max-width: 480px) {
+    th.col-date, td.col-date { display: none; }
+  }
+</style>
+
+<!-- Page header -->
+<div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h1>Members</h1>
+    <p class="page-date">Manage all club members</p>
+  </div>
+</div>
+<div class="page-divider"></div>
+
+<!-- Toolbar -->
+<div class="members-toolbar">
+  <div class="search-wrap">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input id="search-input" class="search-input" type="search" placeholder="Search members…" autocomplete="off">
+  </div>
+  <button class="btn-primary" id="btn-add-member">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Add Member
+  </button>
+</div>
+
+<!-- Table -->
+<div class="card table-card">
+  <div class="table-wrap">
+    <table id="members-table">
+      <thead>
+        <tr>
+          <th class="col-photo">Photo</th>
+          <th>Name</th>
+          <th class="col-date">Birthday</th>
+          <th class="col-days">Days</th>
+          <th>Status</th>
+          <th class="col-created">Added</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="members-tbody">
+        <tr><td colspan="5"><div class="empty-state"><p>Loading members…</p></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ── Add / Edit Modal ── -->
+<div class="modal-backdrop" id="member-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modal-title">Add Member</h2>
+      <button class="modal-close" id="modal-close-btn" aria-label="Close">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <form id="member-form" novalidate>
+        <input type="hidden" id="member-id">
+
+        <div class="field-row">
+          <div class="field">
+            <label for="field-name">Name <span style="color:var(--error-text)">*</span></label>
+            <input type="text" id="field-name" placeholder="Full name" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="field-birthday">Birthday <span style="color:var(--error-text)">*</span></label>
+            <input type="date" id="field-birthday">
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Photo</label>
+          <div class="photo-upload-area" id="upload-area">
+            <input type="file" id="field-photo" accept=".png,.jpg,.jpeg,.webp" aria-label="Upload photo">
+            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <div class="upload-hint"><span>Click to upload</span> or drag &amp; drop</div>
+            <div class="upload-hint">PNG, JPG, WEBP · max 5 MB</div>
+          </div>
+          <div class="photo-preview-wrap" id="preview-wrap">
+            <img class="photo-preview" id="photo-preview-img" src="" alt="Preview">
+            <div>
+              <div class="photo-preview-name" id="photo-preview-name"></div>
+              <button type="button" class="btn-remove-photo" id="btn-remove-photo">Remove</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Status</label>
+          <div class="toggle-wrap">
+            <label class="toggle">
+              <input type="checkbox" id="field-active" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <span class="toggle-label" id="toggle-label">Active</span>
+          </div>
+        </div>
+
+        <div id="form-error" style="display:none;" class="message-banner error" style="margin-top:12px;">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span id="form-error-text"></span>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" id="modal-cancel-btn">Cancel</button>
+      <button class="btn-primary" id="modal-save-btn">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        Save Member
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Delete Confirm Modal ── -->
+<div class="modal-backdrop confirm-modal" id="delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="delete-title">Delete Member</h2>
+      <button class="modal-close" id="delete-close-btn" aria-label="Close">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="confirm-body">
+      <p>Are you sure you want to delete <strong id="delete-name"></strong>? This action cannot be undone and will also remove their photo.</p>
+    </div>
+    <div class="modal-footer" style="padding-top:20px;">
+      <button class="btn-ghost" id="delete-cancel-btn">Cancel</button>
+      <button class="btn-danger" id="delete-confirm-btn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── State ── */
+  let allMembers  = [];
+  let editingId   = null;   // null = create, string = update
+  let deletingId  = null;
+  let deletingName = '';
+  let newPhotoFile = null;  // File object when user picks a new photo
+
+  /* ── DOM refs ── */
+  const tbody       = document.getElementById('members-tbody');
+  const searchInput = document.getElementById('search-input');
+
+  const memberModal  = document.getElementById('member-modal');
+  const modalTitle   = document.getElementById('modal-title');
+  const modalClose   = document.getElementById('modal-close-btn');
+  const modalCancel  = document.getElementById('modal-cancel-btn');
+  const modalSave    = document.getElementById('modal-save-btn');
+  const formError    = document.getElementById('form-error');
+  const formErrorTxt = document.getElementById('form-error-text');
+
+  const fieldName     = document.getElementById('field-name');
+  const fieldBirthday = document.getElementById('field-birthday');
+  const fieldPhoto    = document.getElementById('field-photo');
+  const fieldActive   = document.getElementById('field-active');
+  const toggleLabel   = document.getElementById('toggle-label');
+  const previewWrap   = document.getElementById('preview-wrap');
+  const previewImg    = document.getElementById('photo-preview-img');
+  const previewName   = document.getElementById('photo-preview-name');
+  const btnRemovePhoto = document.getElementById('btn-remove-photo');
+
+  const deleteModal   = document.getElementById('delete-modal');
+  const deleteName    = document.getElementById('delete-name');
+  const deleteClose   = document.getElementById('delete-close-btn');
+  const deleteCancel  = document.getElementById('delete-cancel-btn');
+  const deleteConfirm = document.getElementById('delete-confirm-btn');
+
+  /* ── Toast ── */
+  function toast(msg, type = 'success') {
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.textContent = msg;
+    document.getElementById('toast-container').appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+
+  /* ── Fetch members ── */
+  async function loadMembers() {
+    try {
+      const res = await fetch('/api/members');
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      allMembers = data.members;
+      // Sort by days until next birthday (soonest first)
+      allMembers.sort((a, b) => daysUntil(a.birth_date) - daysUntil(b.birth_date));
+      renderTable(allMembers);
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><p>Failed to load members: ${e.message}</p></div></td></tr>`;
+    }
+  }
+
+  /* ── Days until next birthday ── */
+  function daysUntil(birthDateStr) {
+    if (!birthDateStr) return 999;
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const [, m, d] = birthDateStr.split('-').map(Number);
+    let next = new Date(today.getFullYear(), m - 1, d);
+    if (next < today) next = new Date(today.getFullYear() + 1, m - 1, d);
+    return Math.round((next - today) / 86400000);
+  }
+
+  /* ── Render table ── */
+  function formatDate(iso) {
+    if (!iso) return '—';
+    const [y, m, d] = iso.split('-');
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${parseInt(d, 10)} ${months[parseInt(m, 10) - 1]}`;
+  }
+
+  function formatCreated(iso) {
+    if (!iso) return '—';
+    return iso.slice(0, 10);
+  }
+
+  function renderTable(members) {
+    if (!members.length) {
+      tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><p>No members found.</p></div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = members.map(m => {
+      const isActive = m['is_active'];
+      const initial  = (m.name || '?')[0].toUpperCase();
+      const photo    = m.photo_url
+        ? `<img class="member-photo" src="${escHtml(m.photo_url)}" alt="${escHtml(m.name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+           <div class="member-photo-placeholder" style="display:none">${initial}</div>`
+        : `<div class="member-photo-placeholder">${initial}</div>`;
+
+      const badge = isActive
+        ? `<span class="badge badge-active"><span class="badge-dot"></span>Active</span>`
+        : `<span class="badge badge-inactive"><span class="badge-dot"></span>Inactive</span>`;
+
+      const days = daysUntil(m.birth_date);
+      const daysLabel = days === 0 ? '<span style="color:#4ade80;font-weight:600">Today!</span>'
+                      : days === 1 ? '<span style="color:var(--success-text)">Tomorrow</span>'
+                      : days <= 7  ? `<span style="color:var(--success-text)">${days}d</span>`
+                      :              `<span style="color:var(--text-muted)">${days}d</span>`;
+
+      return `<tr data-id="${m.id}">
+        <td class="col-photo"><div class="photo-cell">${photo}</div></td>
+        <td style="font-weight:500;color:var(--text)">${escHtml(m.name)}</td>
+        <td class="col-date">${formatDate(m.birth_date)}</td>
+        <td class="col-days">${daysLabel}</td>
+        <td>${badge}</td>
+        <td class="col-created" style="color:var(--text-muted);font-size:0.82rem">${formatCreated(m.created_at)}</td>
+        <td style="text-align:right;">
+          <div class="action-btns" style="justify-content:flex-end">
+            <button class="btn-icon-sm btn-edit" data-id="${m.id}" title="Edit">
+              <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <button class="btn-icon-sm btn-delete" data-id="${m.id}" data-name="${escHtml(m.name)}" title="Delete">
+              <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            </button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  function escHtml(str) {
+    return String(str ?? '')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  /* ── Search ── */
+  searchInput.addEventListener('input', function () {
+    const q = this.value.trim().toLowerCase();
+    renderTable(q ? allMembers.filter(m => m.name.toLowerCase().includes(q)) : allMembers);
+  });
+
+  /* ── Table click delegation ── */
+  tbody.addEventListener('click', function (e) {
+    const editBtn   = e.target.closest('.btn-edit');
+    const deleteBtn = e.target.closest('.btn-delete');
+    if (editBtn)   openEditModal(editBtn.dataset.id);
+    if (deleteBtn) openDeleteModal(deleteBtn.dataset.id, deleteBtn.dataset.name);
+  });
+
+  // ── Photo field ──
+  fieldActive.addEventListener('change', function () {
+    toggleLabel.textContent = this.checked ? 'Active' : 'Inactive';
+  });
+
+  fieldPhoto.addEventListener('change', function () {
+    const file = this.files[0];
+    if (!file) return;
+    newPhotoFile = file;
+    const url = URL.createObjectURL(file);
+    previewImg.src = url;
+    previewName.textContent = file.name;
+    previewWrap.classList.add('visible');
+  });
+
+  btnRemovePhoto.addEventListener('click', function () {
+    newPhotoFile = null;
+    fieldPhoto.value = '';
+    previewWrap.classList.remove('visible');
+    previewImg.src = '';
+  });
+
+  /* ── Modal helpers ── */
+  function resetForm() {
+    fieldName.value = '';
+    fieldBirthday.value = '';
+    fieldActive.checked = true;
+    toggleLabel.textContent = 'Active';
+    newPhotoFile = null;
+    fieldPhoto.value = '';
+    previewWrap.classList.remove('visible');
+    previewImg.src = '';
+    formError.style.display = 'none';
+  }
+
+  function showFormError(msg) {
+    formErrorTxt.textContent = msg;
+    formError.style.display = 'flex';
+  }
+
+  function openAddModal() {
+    editingId = null;
+    resetForm();
+    modalTitle.textContent = 'Add Member';
+    memberModal.classList.add('open');
+    fieldName.focus();
+  }
+
+  function openEditModal(id) {
+    const member = allMembers.find(m => m.id === id);
+    if (!member) return;
+    editingId = id;
+    resetForm();
+    modalTitle.textContent = 'Edit Member';
+    fieldName.value     = member.name || '';
+    fieldBirthday.value = member.birth_date || '';
+    fieldActive.checked = !!member['is_Active'];
+    toggleLabel.textContent = fieldActive.checked ? 'Active' : 'Inactive';
+    // Show existing photo as preview
+    if (member.photo_url) {
+      previewImg.src = member.photo_url;
+      previewName.textContent = 'Current photo';
+      previewWrap.classList.add('visible');
+    }
+    memberModal.classList.add('open');
+    fieldName.focus();
+  }
+
+  function closeModal() {
+    memberModal.classList.remove('open');
+    editingId = null;
+  }
+
+  document.getElementById('btn-add-member').addEventListener('click', openAddModal);
+  modalClose.addEventListener('click',  closeModal);
+  modalCancel.addEventListener('click', closeModal);
+  memberModal.addEventListener('click', function (e) {
+    if (e.target === memberModal) closeModal();
+  });
+
+  /* ── Save member ── */
+  modalSave.addEventListener('click', async function () {
+    const name      = fieldName.value.trim();
+    const birthday  = fieldBirthday.value.trim();
+    const isActive  = fieldActive.checked;
+
+    if (!name)     { showFormError('Name is required.'); return; }
+    if (!birthday) { showFormError('Birthday is required.'); return; }
+    formError.style.display = 'none';
+
+    const fd = new FormData();
+    fd.append('name',       name);
+    fd.append('birth_date', birthday);
+    fd.append('is_active',  isActive ? 'true' : 'false');
+    if (newPhotoFile) fd.append('photo', newPhotoFile);
+
+    modalSave.disabled = true;
+    modalSave.textContent = 'Saving…';
+
+    try {
+      const url    = editingId ? `/api/members/${editingId}` : '/api/members';
+      const method = editingId ? 'PUT' : 'POST';
+      const res    = await fetch(url, { method, body: fd });
+      const data   = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      closeModal();
+      await loadMembers();
+      toast(editingId ? 'Member updated.' : 'Member added.');
+    } catch (e) {
+      showFormError(e.message);
+    } finally {
+      modalSave.disabled = false;
+      modalSave.innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><polyline points="20 6 9 17 4 12"/></svg> Save Member';
+    }
+  });
+
+  /* ── Delete modal ── */
+  function openDeleteModal(id, name) {
+    deletingId   = id;
+    deletingName = name;
+    deleteName.textContent = name;
+    deleteModal.classList.add('open');
+  }
+
+  function closeDeleteModal() {
+    deleteModal.classList.remove('open');
+    deletingId = null;
+  }
+
+  deleteClose.addEventListener('click',  closeDeleteModal);
+  deleteCancel.addEventListener('click', closeDeleteModal);
+  deleteModal.addEventListener('click', function (e) {
+    if (e.target === deleteModal) closeDeleteModal();
+  });
+
+  deleteConfirm.addEventListener('click', async function () {
+    if (!deletingId) return;
+    deleteConfirm.disabled = true;
+    deleteConfirm.textContent = 'Deleting…';
+    try {
+      const res  = await fetch(`/api/members/${deletingId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      closeDeleteModal();
+      await loadMembers();
+      toast(`${deletingName} deleted.`);
+    } catch (e) {
+      toast(e.message, 'error');
+      closeDeleteModal();
+    } finally {
+      deleteConfirm.disabled = false;
+      deleteConfirm.textContent = 'Delete';
+    }
+  });
+
+  /* ── Close modals on Escape ── */
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (memberModal.classList.contains('open')) closeModal();
+    if (deleteModal.classList.contains('open')) closeDeleteModal();
+  });
+
+  /* ── Boot ── */
+  loadMembers();
+})();
+</script>
+{% endblock %}

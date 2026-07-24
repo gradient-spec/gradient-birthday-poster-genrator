@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}History · Gradient{% endblock %}
+{% block content %}
+<style>
+  .table-card { overflow: hidden; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  thead tr { border-bottom: 1px solid var(--border); }
+  th { padding: 12px 16px; text-align: left; font-size: 0.72rem; font-weight: 500;
+       letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; }
+  tbody tr { border-bottom: 1px solid rgba(42,54,71,0.5); transition: background 0.12s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,0.025); }
+  td { padding: 13px 16px; vertical-align: middle; }
+
+  .status-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px;
+    border-radius: 999px; font-size: 0.75rem; font-weight: 500; }
+  .status-success  { background: rgba(24,98,117,0.12); color: var(--success-text); border: 1px solid rgba(24,98,117,0.3); }
+  .status-error    { background: var(--error-bg); color: var(--error-text); border: 1px solid var(--error-border); }
+  .status-no_birthdays { background: rgba(255,255,255,0.04); color: var(--text-muted); border: 1px solid var(--border); }
+
+  .names-list { display: flex; flex-wrap: wrap; gap: 5px; }
+  .name-chip { background: rgba(24,98,117,0.10); color: var(--success-text);
+    padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; }
+
+  .empty-state { padding: 56px 24px; text-align: center; }
+  .empty-state p { font-size: 0.9rem; color: var(--text-muted); margin-top: 8px; }
+</style>
+
+<div class="page-header">
+  <h1>Generation History</h1>
+  <p class="page-date">All poster generation runs</p>
+</div>
+<div class="page-divider"></div>
+
+<div class="card table-card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date &amp; Time</th>
+          <th>Posters</th>
+          <th>Members</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if history %}
+          {% for row in history %}
+          <tr>
+            <td style="color:var(--text);white-space:nowrap;">
+              {{ row.generated_at[:16].replace('T', ' ') if row.generated_at else '—' }}
+            </td>
+            <td style="font-weight:600;color:var(--text);">{{ row.birthday_count }}</td>
+            <td>
+              {% if row.member_names %}
+                <div class="names-list">
+                  {% for name in row.member_names %}
+                    <span class="name-chip">{{ name }}</span>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <span style="color:var(--text-muted);font-size:0.82rem">—</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="status-badge status-{{ row.status }}">
+                {% if row.status == 'success' %}✓ Success
+                {% elif row.status == 'error' %}✗ Error
+                {% else %}— No birthdays
+                {% endif %}
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="4">
+              <div class="empty-state">
+                <p>No generation history yet. Run your first poster generation from the dashboard.</p>
+              </div>
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,363 @@
+{% extends "base.html" %}
+{% block title %}Templates · Gradient{% endblock %}
+{% block content %}
+<style>
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+
+  /* Grid */
+  .templates-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
+  .tpl-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden; display: flex; flex-direction: column; transition: border-color 0.2s; }
+  .tpl-card:hover { border-color: var(--accent); }
+  .tpl-card.is-default { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .tpl-preview { width: 100%; aspect-ratio: 3/4; object-fit: cover; background: var(--bg-secondary); display: block; }
+  .tpl-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .tpl-name { font-size: 0.88rem; font-weight: 500; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tpl-meta { font-size: 0.73rem; color: var(--text-muted); }
+  .tpl-actions { display: flex; align-items: center; gap: 6px; }
+  .tpl-default-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;
+    border-radius: 999px; font-size: 0.7rem; font-weight: 500;
+    background: rgba(24,98,117,0.14); color: var(--success-text); border: 1px solid rgba(24,98,117,0.3); }
+
+  /* Skeleton */
+  .skeleton { background: linear-gradient(90deg, var(--surface) 25%, rgba(255,255,255,0.04) 50%, var(--surface) 75%);
+    background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: var(--radius); }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  .skel-card { height: 280px; }
+
+  .empty-state { padding: 56px 24px; text-align: center; }
+  .empty-state p { font-size: 0.9rem; color: var(--text-muted); margin-top: 8px; }
+
+  /* Toast */
+  .toast-container { position: fixed; bottom: 28px; right: 28px; display: flex; flex-direction: column;
+    gap: 10px; z-index: 900; pointer-events: none; }
+  .toast { padding: 12px 18px; border-radius: 10px; font-size: 0.88rem; pointer-events: all;
+    animation: toast-in 0.25s ease; max-width: 340px; }
+  .toast.success { background: #0f2a22; border: 1px solid rgba(24,98,117,0.5); color: var(--success-text); }
+  .toast.error   { background: #2a0f0f; border: 1px solid var(--error-border); color: var(--error-text); }
+  @keyframes toast-in { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+  /* Upload modal */
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+    z-index: 500; align-items: center; justify-content: center; padding: 24px; }
+  .modal-backdrop.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 18px;
+    width: min(480px, 100%); box-shadow: 0 32px 80px rgba(0,0,0,0.7); display: flex; flex-direction: column; }
+  .modal-header { padding: 24px 28px 0; display: flex; align-items: center; justify-content: space-between; }
+  .modal-header h2 { font-family: var(--font-heading); font-size: 1.1rem; font-weight: 600; color: var(--text); }
+  .modal-close { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px;
+    border-radius: 7px; border: none; background: transparent; cursor: pointer; color: var(--text-muted); }
+  .modal-close:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+  .modal-close svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2;
+    stroke-linecap: round; stroke-linejoin: round; }
+  .modal-body { padding: 20px 28px; }
+  .modal-footer { padding: 0 28px 24px; display: flex; justify-content: flex-end; gap: 10px; }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+  .field label { font-size: 0.76rem; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); }
+  .field input[type="text"] { padding: 10px 13px; background: var(--bg-secondary); border: 1px solid var(--border);
+    border-radius: 9px; color: var(--text); font-family: var(--font-body); font-size: 0.95rem; outline: none;
+    transition: border-color 0.2s; width: 100%; }
+  .field input:focus { border-color: var(--accent); }
+  .photo-upload-area { border: 1.5px dashed var(--border); border-radius: 10px; padding: 20px;
+    text-align: center; cursor: pointer; transition: border-color 0.2s; position: relative; }
+  .photo-upload-area:hover { border-color: var(--accent); }
+  .photo-upload-area input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .photo-upload-area svg { width: 22px; height: 22px; stroke: var(--text-muted); fill: none;
+    stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; margin: 0 auto 8px; }
+  .upload-hint { font-size: 0.82rem; color: var(--text-muted); }
+  .upload-hint span { color: var(--accent); }
+  .btn-ghost { padding: 9px 18px; border-radius: 9px; border: 1px solid var(--border);
+    background: transparent; color: var(--text-muted); font-size: 0.9rem; font-weight: 500; cursor: pointer;
+    transition: background 0.15s, color 0.15s; }
+  .btn-ghost:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+  .btn-danger { padding: 9px 18px; border-radius: 9px; border: none; background: rgba(200,60,60,0.18);
+    color: var(--error-text); font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: background 0.15s; }
+  .btn-danger:hover { background: rgba(200,60,60,0.28); }
+
+  /* Rename inline */
+  .tpl-name-input { background: var(--bg-secondary); border: 1px solid var(--accent);
+    border-radius: 6px; color: var(--text); font-size: 0.88rem; padding: 3px 8px; width: 100%; outline: none; }
+</style>
+
+<div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h1>Templates</h1>
+    <p class="page-date">Manage poster templates</p>
+  </div>
+</div>
+<div class="page-divider"></div>
+
+<div class="toolbar">
+  <button class="btn-primary" id="btn-upload">
+    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Upload Template
+  </button>
+</div>
+
+<div id="templates-grid" class="templates-grid">
+  <!-- skeletons while loading -->
+  <div class="skeleton skel-card"></div>
+  <div class="skeleton skel-card"></div>
+  <div class="skeleton skel-card"></div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<!-- Upload Modal -->
+<div class="modal-backdrop" id="upload-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Upload Template</h2>
+      <button class="modal-close" id="upload-close">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="tpl-name">Template Name</label>
+        <input type="text" id="tpl-name" placeholder="e.g. Blue Gradient 2026">
+      </div>
+      <div class="field">
+        <label>File</label>
+        <div class="photo-upload-area">
+          <input type="file" id="tpl-file" accept=".png,.jpg,.jpeg,.webp">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <div class="upload-hint"><span>Click to upload</span> · PNG, JPG, WEBP</div>
+          <div id="tpl-file-name" class="upload-hint" style="margin-top:4px;"></div>
+        </div>
+      </div>
+      <div id="upload-error" style="display:none;" class="message-banner error" style="margin-top:10px;">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span id="upload-error-text"></span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" id="upload-cancel">Cancel</button>
+      <button class="btn-primary" id="upload-save">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        Upload
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal-backdrop" id="delete-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Delete Template</h2>
+      <button class="modal-close" id="delete-close">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" style="padding-bottom:0;">
+      <p style="font-size:0.9rem;color:var(--text-muted);line-height:1.65;">
+        Delete <strong id="delete-tpl-name" style="color:var(--text)"></strong>?
+        This cannot be undone. The template file will be permanently removed from storage.
+      </p>
+    </div>
+    <div class="modal-footer" style="padding-top:20px;">
+      <button class="btn-ghost" id="delete-cancel">Cancel</button>
+      <button class="btn-danger" id="delete-confirm">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  let templates = [];
+  let deletingId = null;
+
+  const grid        = document.getElementById('templates-grid');
+  const toastCont   = document.getElementById('toast-container');
+  const uploadModal = document.getElementById('upload-modal');
+  const deleteModal = document.getElementById('delete-modal');
+
+  /* ── Toast ── */
+  function toast(msg, type = 'success') {
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.textContent = msg;
+    toastCont.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+
+  /* ── Load ── */
+  async function loadTemplates() {
+    try {
+      const res  = await fetch('/api/templates');
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      templates = data.templates;
+      render();
+    } catch (e) {
+      grid.innerHTML = `<div class="empty-state"><p>Failed to load templates: ${e.message}</p></div>`;
+    }
+  }
+
+  /* ── Render ── */
+  function render() {
+    if (!templates.length) {
+      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><p>No templates uploaded yet. Upload your first template to get started.</p></div>`;
+      return;
+    }
+    grid.innerHTML = templates.map(t => `
+      <div class="tpl-card ${t.is_default ? 'is-default' : ''}" data-id="${t.id}">
+        <img class="tpl-preview" src="${esc(t.public_url)}" alt="${esc(t.name)}" loading="lazy">
+        <div class="tpl-body">
+          <div class="tpl-name" id="name-${t.id}">${esc(t.name)}</div>
+          ${t.is_default ? '<span class="tpl-default-badge">✓ Default</span>' : ''}
+          <div class="tpl-meta">${t.created_at ? t.created_at.slice(0,10) : ''}</div>
+          <div class="tpl-actions">
+            ${!t.is_default ? `<button class="btn-icon-sm btn-set-default" data-id="${t.id}" title="Set as default" style="font-size:0.7rem;padding:0 8px;width:auto;">Set default</button>` : ''}
+            <button class="btn-icon-sm btn-rename" data-id="${t.id}" data-name="${esc(t.name)}" title="Rename">
+              <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
+            </button>
+            <button class="btn-icon-sm btn-delete" data-id="${t.id}" data-name="${esc(t.name)}" title="Delete" style="margin-left:auto;">
+              <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  /* ── Grid click delegation ── */
+  grid.addEventListener('click', async function (e) {
+    const setBtn    = e.target.closest('.btn-set-default');
+    const renameBtn = e.target.closest('.btn-rename');
+    const deleteBtn = e.target.closest('.btn-delete');
+
+    if (setBtn) {
+      setBtn.disabled = true;
+      try {
+        const res = await fetch(`/api/templates/${setBtn.dataset.id}/set-default`, { method: 'PATCH' });
+        const d   = await res.json();
+        if (!d.ok) throw new Error(d.error);
+        await loadTemplates();
+        toast('Default template updated.');
+      } catch(ex) { toast(ex.message, 'error'); setBtn.disabled = false; }
+    }
+
+    if (renameBtn) {
+      const id   = renameBtn.dataset.id;
+      const nameEl = document.getElementById('name-' + id);
+      if (!nameEl) return;
+      const oldName = renameBtn.dataset.name;
+      nameEl.innerHTML = `<input class="tpl-name-input" value="${esc(oldName)}" id="rename-input-${id}">`;
+      const inp = document.getElementById('rename-input-' + id);
+      inp.focus(); inp.select();
+      inp.addEventListener('keydown', async function (ev) {
+        if (ev.key === 'Enter') { ev.preventDefault(); await commitRename(id, inp.value.trim()); }
+        if (ev.key === 'Escape') render();
+      });
+      inp.addEventListener('blur', async () => { await commitRename(id, inp.value.trim()); });
+    }
+
+    if (deleteBtn) {
+      deletingId = deleteBtn.dataset.id;
+      document.getElementById('delete-tpl-name').textContent = deleteBtn.dataset.name;
+      deleteModal.classList.add('open');
+    }
+  });
+
+  async function commitRename(id, newName) {
+    if (!newName) { render(); return; }
+    try {
+      const res = await fetch(`/api/templates/${id}/rename`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName }),
+      });
+      const d = await res.json();
+      if (!d.ok) throw new Error(d.error);
+      await loadTemplates();
+      toast('Template renamed.');
+    } catch (ex) { toast(ex.message, 'error'); render(); }
+  }
+
+  /* ── Upload modal ── */
+  const tplFile     = document.getElementById('tpl-file');
+  const tplFileName = document.getElementById('tpl-file-name');
+  const uploadErr   = document.getElementById('upload-error');
+  const uploadErrTx = document.getElementById('upload-error-text');
+
+  tplFile.addEventListener('change', function () {
+    tplFileName.textContent = this.files[0]?.name || '';
+  });
+
+  function openUpload() {
+    document.getElementById('tpl-name').value = '';
+    tplFile.value = '';
+    tplFileName.textContent = '';
+    uploadErr.style.display = 'none';
+    uploadModal.classList.add('open');
+  }
+  function closeUpload() { uploadModal.classList.remove('open'); }
+
+  document.getElementById('btn-upload').addEventListener('click', openUpload);
+  document.getElementById('upload-close').addEventListener('click', closeUpload);
+  document.getElementById('upload-cancel').addEventListener('click', closeUpload);
+  uploadModal.addEventListener('click', e => { if (e.target === uploadModal) closeUpload(); });
+
+  document.getElementById('upload-save').addEventListener('click', async function () {
+    const name = document.getElementById('tpl-name').value.trim();
+    const file = tplFile.files[0];
+    if (!file) { uploadErrTx.textContent = 'Please select a file.'; uploadErr.style.display = 'flex'; return; }
+    this.disabled = true; this.textContent = 'Uploading…';
+    try {
+      const fd = new FormData();
+      fd.append('template', file);
+      if (name) fd.append('name', name);
+      const res  = await fetch('/api/templates', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      closeUpload();
+      await loadTemplates();
+      toast('Template uploaded.');
+    } catch (ex) {
+      uploadErrTx.textContent = ex.message;
+      uploadErr.style.display = 'flex';
+    } finally {
+      this.disabled = false;
+      this.innerHTML = '<svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><polyline points="20 6 9 17 4 12"/></svg> Upload';
+    }
+  });
+
+  /* ── Delete modal ── */
+  function closeDelete() { deleteModal.classList.remove('open'); deletingId = null; }
+  document.getElementById('delete-close').addEventListener('click', closeDelete);
+  document.getElementById('delete-cancel').addEventListener('click', closeDelete);
+  deleteModal.addEventListener('click', e => { if (e.target === deleteModal) closeDelete(); });
+
+  document.getElementById('delete-confirm').addEventListener('click', async function () {
+    if (!deletingId) return;
+    this.disabled = true; this.textContent = 'Deleting…';
+    try {
+      const res  = await fetch(`/api/templates/${deletingId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      closeDelete();
+      await loadTemplates();
+      toast('Template deleted.');
+    } catch (ex) { toast(ex.message, 'error'); closeDelete(); }
+    finally { this.disabled = false; this.textContent = 'Delete'; }
+  });
+
+  /* ── Escape key ── */
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (uploadModal.classList.contains('open')) closeUpload();
+    if (deleteModal.classList.contains('open')) closeDelete();
+  });
+
+  loadTemplates();
+})();
+</script>
+{% endblock %}
