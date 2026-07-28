@@ -42,6 +42,22 @@ app.secret_key = SECRET_KEY
 app.register_blueprint(auth_bp)
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# HEALTH + LOADING  (no auth, no DB — used for cold-start wake-up detection)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/health")
+def health():
+    """Lightweight liveness probe. No DB, no auth, no logging."""
+    return jsonify({"status": "ok"})
+
+
+@app.get("/loading")
+def loading():
+    """Cold-start loading page — polls /health until the server is awake."""
+    return render_template("loading.html")
+
+
 # ── Shared template context ───────────────────────────────────────────────────
 
 def _base_ctx(**extra) -> dict:
