@@ -43,19 +43,18 @@ app.register_blueprint(auth_bp)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# HEALTH + LOADING  (no auth, no DB — used for cold-start wake-up detection)
+# HEALTH  (no auth, no DB — polled by the static Vercel loader to detect wake-up)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @app.get("/health")
 def health():
-    """Lightweight liveness probe. No DB, no auth, no logging."""
-    return jsonify({"status": "ok"})
-
-
-@app.get("/loading")
-def loading():
-    """Cold-start loading page — polls /health until the server is awake."""
-    return render_template("loading.html")
+    """Lightweight liveness probe. No DB, no auth, no logging.
+    Returns CORS header so the static Vercel loader can poll from
+    https://birthday.gradientclub.in without being blocked by the browser.
+    """
+    response = jsonify({"status": "ok"})
+    response.headers["Access-Control-Allow-Origin"] = "https://birthday.gradientclub.in"
+    return response
 
 
 # ── Shared template context ───────────────────────────────────────────────────
