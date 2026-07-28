@@ -52,7 +52,7 @@ def health():
     https://birthday.gradientclub.in without being blocked by the browser.
     """
     response = jsonify({"status": "ok"})
-    response.headers["Access-Control-Allow-Origin"] = "https://birthday.gradientclub.in"
+    response.headers["Access-Control-Allow-Origin"] = "https://birthday-posters.gradientclub.in"
     return response
 
 

@@ -139,7 +139,7 @@ Render will verify the CNAME and provision its own TLS certificate.
 ## CORS — Flask must allow the Vercel origin
 
 The loading page fetches `https://birthday-api.gradientclub.in/health`
-from `https://birthday.gradientclub.in`.
+from `https://birthday-posters.gradientclub.in`.
 
 Because these are different origins, Flask needs to return the correct
 CORS header on `/health` responses.
@@ -150,7 +150,7 @@ Add this to `app.py` in the Flask project:
 @app.get("/health")
 def health():
     response = jsonify({"status": "ok"})
-    response.headers["Access-Control-Allow-Origin"] = "https://birthday.gradientclub.in"
+    response.headers["Access-Control-Allow-Origin"] = "https://birthday-posters.gradientclub.in"
     return response
 ```
 
@@ -162,7 +162,7 @@ pip install flask-cors==4.0.1
 
 ```python
 from flask_cors import CORS
-CORS(app, origins=["https://birthday.gradientclub.in"])
+CORS(app, origins=["https://birthday-posters.gradientclub.in"])
 ```
 
 > Without this header the browser will block the `/health` fetch and
