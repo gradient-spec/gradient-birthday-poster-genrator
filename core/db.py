@@ -17,7 +17,7 @@ Authentication remains entirely in core/auth.py.
 """
 
 import uuid
-from datetime import date, timedelta, timezone
+from datetime import date
 from typing import Any
 from zoneinfo import ZoneInfo
 

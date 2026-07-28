@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, timezone
+from datetime import date
 from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request, session
@@ -10,7 +10,6 @@ from core.config import SECRET_KEY
 from core.db import (
     get_active_member_count,
     get_all_settings,
-    get_default_template,
     get_last_generation,
     get_today_birthdays,
     get_upcoming_birthdays,
