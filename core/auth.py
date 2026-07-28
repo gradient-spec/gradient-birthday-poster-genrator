@@ -49,10 +49,11 @@ def login_post():
         response = supabase.auth.sign_in_with_password({"email": email, "password": password})
         session[_SESSION_KEY] = response.user.email
         return redirect(url_for("home"))
-    except Exception  as exc:
-        return render_template("login.html", error="Invalid email or password."), 401
     except Exception as exc:
-        return render_template("login.html", error=f"An unexpected error occurred: {exc}"), 500
+        error_msg = str(exc).lower()
+        if "invalid" in error_msg or "credentials" in error_msg or "password" in error_msg:
+            return render_template("login.html", error="Invalid email or password."), 401
+        return render_template("login.html", error="Invalid email or password."), 401
 
 
 @auth_bp.post("/logout")

@@ -5,6 +5,10 @@ services:
 
     buildCommand: "pip install -r requirements.txt"
 
-    startCommand: "gunicorn app:app"
+    # $PORT is injected by Render at runtime.
+    # --workers 2  : two sync workers so one poster generation doesn't block the UI
+    # --timeout 120: poster generation + Telegram upload can take ~60s; give 120s headroom
+    # --preload    : load the app once before forking workers (saves memory on free tier)
+    startCommand: "gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --preload"
 
-    plan: free  
+    plan: free

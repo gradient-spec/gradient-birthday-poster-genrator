@@ -660,7 +660,7 @@
     modalTitle.textContent = 'Edit Member';
     fieldName.value     = member.name || '';
     fieldBirthday.value = member.birth_date || '';
-    fieldActive.checked = !!member['is_Active'];
+    fieldActive.checked = !!member['is_active'];
     toggleLabel.textContent = fieldActive.checked ? 'Active' : 'Inactive';
     // Show existing photo as preview
     if (member.photo_url) {
