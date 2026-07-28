@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Gradient Birthday Poster Generator — starting up">
+  <title>Starting · Gradient Birthday Platform</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Alegreya+Sans:wght@300;400;500&display=swap"
+    rel="stylesheet"
+  >
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- ── Ambient background glow (decorative, aria-hidden) ── -->
+  <div class="bg-glow" aria-hidden="true"></div>
+
+  <main class="stage">
+
+    <div class="card" id="js-card">
+
+      <!-- Logo -->
+      <div class="logo-wrap" aria-hidden="true">
+        <img
+          class="logo-img"
+          src="assets/logo.svg"
+          alt=""
+          id="js-logo"
+          onerror="this.style.opacity='0'"
+        >
+        <div class="logo-ring"></div>
+      </div>
+
+      <!-- Heading -->
+      <h1 class="title">Birthday Poster Generator</h1>
+      <p class="subtitle">Gradient Internal Tools</p>
+
+      <!-- Progress bar -->
+      <div class="progress-track" role="progressbar" aria-label="Loading progress" aria-valuemin="0" aria-valuemax="100">
+        <div class="progress-fill" id="js-progress"></div>
+      </div>
+
+      <!-- Spinner -->
+      <div class="spinner-wrap" aria-hidden="true">
+        <div class="spinner" id="js-spinner"></div>
+      </div>
+
+      <!-- Status message — announced to screen readers -->
+      <p class="status-msg" id="js-status" role="status" aria-live="polite">
+        Starting Birthday Poster Generator...
+      </p>
+
+      <!-- Dot indicators -->
+      <div class="dots" aria-hidden="true">
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+      </div>
+
+      <!-- Cold-start note -->
+      <aside class="cold-note">
+        <strong>First launch of the day?</strong><br>
+        The server may take up to one minute to start.
+      </aside>
+
+      <!-- Timeout warning (shown after 90 s, hidden by default) -->
+      <div class="timeout-warning" id="js-timeout" aria-live="polite" hidden>
+        Server is taking longer than expected.<br>
+        Still trying&hellip;
+      </div>
+
+      <!-- Success state (shown just before redirect, hidden by default) -->
+      <div class="success-flash" id="js-success" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Server ready &mdash; redirecting&hellip;
+      </div>
+
+    </div>
+
+  </main>
+
+  <footer class="page-footer">
+    <p>&copy; 2026 &middot; GradientClub.in</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

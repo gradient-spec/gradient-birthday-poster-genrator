@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 48" fill="none">
+  <!--
+    Gradient Club wordmark placeholder.
+    Replace this file with the real logo SVG — the img tag in index.html
+    will pick it up automatically with no other changes needed.
+    Keep it as an SVG for sharpness at all screen densities.
+  -->
+
+  <!-- "G" mark -->
+  <rect width="44" height="44" x="2" y="2" rx="10" fill="#186275"/>
+  <text
+    x="22" y="32"
+    font-family="Georgia, serif"
+    font-size="26"
+    font-weight="700"
+    fill="#EDEDED"
+    text-anchor="middle"
+  >G</text>
+
+  <!-- Wordmark -->
+  <text
+    x="56" y="20"
+    font-family="Georgia, serif"
+    font-size="14"
+    font-weight="700"
+    fill="#EDEDED"
+    letter-spacing="-0.3"
+  >Gradient</text>
+  <text
+    x="57" y="36"
+    font-family="system-ui, sans-serif"
+    font-size="9"
+    font-weight="400"
+    fill="#8295B0"
+    letter-spacing="1.4"
+  >CLUB</text>
+</svg>
