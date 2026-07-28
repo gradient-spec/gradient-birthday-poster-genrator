@@ -573,5 +573,178 @@
   })();
 </script>
 
+<!-- ══════════════════════════════════════════════════════════════════════════
+     GLOBAL FETCH RECOVERY — Intercepts all fetch() calls
+     Automatically redirects to the loader page if backend is unreachable
+     ══════════════════════════════════════════════════════════════════════════ -->
+<script>
+(function () {
+  'use strict';
+
+  /* ────────────────────────────────────────────────────────────────────────
+     CONFIG
+     Change these URLs to match your deployment.
+     ──────────────────────────────────────────────────────────────────────── */
+  var LOADER_URL = 'https://birthday-posters.gradientclub.in';
+  var BACKEND_URL = 'https://birthday-api.gradientclub.in';
+
+  /* ────────────────────────────────────────────────────────────────────────
+     REDIRECT GUARD
+     Prevent infinite loops if redirect fails repeatedly.
+     Clear after 10 seconds so legitimate retries work.
+     ──────────────────────────────────────────────────────────────────────── */
+  var redirectInProgress = false;
+  var redirectKey = '__gradient_redirect_in_progress';
+
+  function canRedirect() {
+    var ts = sessionStorage.getItem(redirectKey);
+    if (!ts) return true;
+    var elapsed = Date.now() - parseInt(ts, 10);
+    // If more than 10 seconds since last redirect, allow retry
+    return elapsed > 10000;
+  }
+
+  function markRedirect() {
+    redirectInProgress = true;
+    sessionStorage.setItem(redirectKey, String(Date.now()));
+  }
+
+  function clearRedirectMark() {
+    sessionStorage.removeItem(redirectKey);
+  }
+
+  /* ────────────────────────────────────────────────────────────────────────
+     REDIRECT TO LOADER
+     Saves current page URL in sessionStorage so the loader can restore it
+     after the backend wakes up (if possible).
+     ──────────────────────────────────────────────────────────────────────── */
+  function redirectToLoader() {
+    if (redirectInProgress || !canRedirect()) {
+      console.warn('[Recovery] Redirect already in progress or too recent.');
+      return;
+    }
+
+    markRedirect();
+
+    // Save current page so loader can restore it after wake-up
+    // Only save if it's a valid Flask route (not /login, not error pages)
+    var path = window.location.pathname;
+    if (path && path !== '/login' && path !== '/loading' && !path.startsWith('/api')) {
+      sessionStorage.setItem('__gradient_return_path', path);
+    } else {
+      sessionStorage.removeItem('__gradient_return_path');
+    }
+
+    console.log('[Recovery] Backend unreachable. Redirecting to loader:', LOADER_URL);
+    window.location.href = LOADER_URL;
+  }
+
+  /* ────────────────────────────────────────────────────────────────────────
+     ERROR DETECTOR
+     Returns true if the error indicates the backend is asleep or unreachable.
+     ──────────────────────────────────────────────────────────────────────── */
+  function isBackendAsleep(response, error) {
+    // Network-level failures (fetch threw an exception)
+    if (error) {
+      var msg = error.message || String(error);
+      // Common fetch error patterns
+      if (msg.includes('Failed to fetch')) return true;
+      if (msg.includes('NetworkError')) return true;
+      if (msg.includes('Network request failed')) return true;
+      if (msg.includes('Load failed')) return true;
+      if (msg.includes('ECONNREFUSED')) return true;
+      if (msg.includes('ENOTFOUND')) return true;
+      if (msg.includes('ERR_CONNECTION_REFUSED')) return true;
+      if (msg.includes('ERR_NAME_NOT_RESOLVED')) return true;
+      if (msg.includes('The operation couldn't be completed')) return true;
+    }
+
+    // HTTP-level failures (response received but indicates server issues)
+    if (response) {
+      var status = response.status;
+      // 502 Bad Gateway: reverse proxy can't reach backend
+      // 503 Service Unavailable: server overloaded or cold-starting
+      // 504 Gateway Timeout: backend took too long to respond
+      if (status === 502 || status === 503 || status === 504) return true;
+    }
+
+    return false;
+  }
+
+  /* ────────────────────────────────────────────────────────────────────────
+     FETCH INTERCEPTOR
+     Wraps native fetch() to catch failures and redirect automatically.
+     ──────────────────────────────────────────────────────────────────────── */
+  var nativeFetch = window.fetch;
+
+  window.fetch = function (url, options) {
+    // Only intercept calls to our backend
+    var urlStr = String(url);
+    var isBackendCall = urlStr.startsWith(BACKEND_URL) || 
+                        urlStr.startsWith('/api/') || 
+                        urlStr.startsWith('/') && !urlStr.startsWith('//');
+
+    if (!isBackendCall) {
+      // External fetch (fonts, CDN, etc.) — pass through untouched
+      return nativeFetch.apply(this, arguments);
+    }
+
+    // Wrap the fetch promise to catch errors
+    return nativeFetch.apply(this, arguments)
+      .then(function (response) {
+        // Check if response indicates backend is asleep
+        if (isBackendAsleep(response, null)) {
+          console.error('[Recovery] Backend asleep (HTTP ' + response.status + '). Redirecting to loader.');
+          redirectToLoader();
+          // Return a rejected promise so caller's .catch() doesn't execute twice
+          return Promise.reject(new Error('Backend asleep, redirecting to loader'));
+        }
+
+        // Response is fine — clear redirect guard on any successful request
+        if (response.ok) {
+          clearRedirectMark();
+        }
+
+        return response;
+      })
+      .catch(function (error) {
+        // Network-level error (connection refused, timeout, etc.)
+        if (isBackendAsleep(null, error)) {
+          console.error('[Recovery] Backend unreachable (' + error.message + '). Redirecting to loader.');
+          redirectToLoader();
+          // Re-throw so caller's .catch() handler still gets called
+          // (they may have user-facing error handling that should run before redirect)
+          return Promise.reject(error);
+        }
+
+        // Some other error (AbortController, JSON parse, etc.) — pass through
+        return Promise.reject(error);
+      });
+  };
+
+  /* ────────────────────────────────────────────────────────────────────────
+     PAGE VISIBILITY API
+     If user returns to a tab after extended absence and backend is asleep,
+     proactively ping /health to trigger recovery before user interacts.
+     ──────────────────────────────────────────────────────────────────────── */
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') {
+      // Tab became visible — ping backend to ensure it's awake
+      // Use a short timeout so it doesn't block anything
+      var pingOpts = { method: 'GET', cache: 'no-store' };
+      if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) {
+        pingOpts.signal = AbortSignal.timeout(3000);
+      }
+      fetch(BACKEND_URL + '/health', pingOpts)
+        .catch(function () {
+          // Health check failed — fetch interceptor will handle redirect
+        });
+    }
+  });
+
+  console.log('[Recovery] Global fetch interceptor installed. Backend:', BACKEND_URL, '| Loader:', LOADER_URL);
+})();
+</script>
+
 </body>
 </html>

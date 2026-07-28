@@ -17,11 +17,11 @@
    The frontend requires zero other changes.
    ============================================================ */
 var CONFIG = {
-  BACKEND_URL:       'https://birthday-api.gradientclub.in',
-  POLL_INTERVAL_MS:  2000,    // poll every 2 seconds
-  TIMEOUT_MS:        90000,   // show warning after 90 seconds
+  BACKEND_URL: 'https://birthday-api.gradientclub.in',
+  POLL_INTERVAL_MS: 2000,    // poll every 2 seconds
+  TIMEOUT_MS: 90000,   // show warning after 90 seconds
   REDIRECT_DELAY_MS: 650,     // brief pause so user sees success state
-  MSG_CYCLE_MS:      5000,    // rotate status messages every 5 seconds
+  MSG_CYCLE_MS: 5000,    // rotate status messages every 5 seconds
 };
 
 /* ============================================================
@@ -41,22 +41,22 @@ var MESSAGES = [
    Gathered once at startup.
    ============================================================ */
 var DOM = {
-  status:   document.getElementById('js-status'),
+  status: document.getElementById('js-status'),
   progress: document.getElementById('js-progress'),
-  spinner:  document.getElementById('js-spinner'),
-  timeout:  document.getElementById('js-timeout'),
-  success:  document.getElementById('js-success'),
+  spinner: document.getElementById('js-spinner'),
+  timeout: document.getElementById('js-timeout'),
+  success: document.getElementById('js-success'),
 };
 
 /* ============================================================
    STATE
    ============================================================ */
 var state = {
-  msgIndex:    0,
+  msgIndex: 0,
   redirecting: false,
-  pollTimer:   null,
-  msgTimer:    null,
-  warnTimer:   null,
+  pollTimer: null,
+  msgTimer: null,
+  warnTimer: null,
 };
 
 /* ============================================================
@@ -105,6 +105,11 @@ function poll() {
    ON SERVER READY
    Called exactly once when /health returns HTTP 200.
    Stops all timers, transitions to success state, then redirects.
+
+   Redirect priority:
+   1. __gradient_return_path in sessionStorage (set by Flask's fetch interceptor
+      when a request failed while the user was inside the app). Clears after use.
+   2. Falls back to BACKEND_URL + '/login'.
    ============================================================ */
 function onServerReady() {
   state.redirecting = true;
@@ -131,12 +136,28 @@ function onServerReady() {
   /* Show success flash */
   DOM.success.hidden = false;
 
+  /* Determine redirect target */
+  var returnPath = null;
+  try {
+    returnPath = sessionStorage.getItem('__gradient_return_path');
+    if (returnPath) {
+      sessionStorage.removeItem('__gradient_return_path');
+      sessionStorage.removeItem('__gradient_redirect_in_progress');
+    }
+  } catch (e) {
+    /* sessionStorage unavailable (private browsing, etc.) — ignore */
+  }
+
+  var redirectTarget = returnPath
+    ? CONFIG.BACKEND_URL + returnPath
+    : CONFIG.BACKEND_URL + '/login';
+
   /* Fade the whole page out, then redirect */
   setTimeout(function () {
     document.body.classList.add('is-redirecting');
 
     setTimeout(function () {
-      window.location.href = CONFIG.BACKEND_URL + '/login';
+      window.location.href = redirectTarget;
     }, 600); /* matches page-fade-out animation duration in CSS */
 
   }, CONFIG.REDIRECT_DELAY_MS);
